@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+
+    /* `src/` imports carry `.ts` extensions so `node --test` can run the
+       sources directly with no build step. This rewrites them to `.js` on the
+       way out, which is what makes the emitted ESM actually resolvable. Do not
+       "fix" the specifiers in src — they are load-bearing in both directions. */
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

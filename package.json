@@ -1,0 +1,74 @@
+{
+  "name": "playmix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Headless multi-track playback engine for the browser. Plays a timeline through the browser's own decoders and renders it offline through the same mix model, so preview and export cannot drift apart. Zero dependencies, framework-agnostic, SSR-safe.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mix": {
+      "types": "./dist/mix/index.d.ts",
+      "import": "./dist/mix/index.js"
+    },
+    "./render": {
+      "types": "./dist/render/offline.d.ts",
+      "import": "./dist/render/offline.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/postbuild.mjs && node scripts/check-dist.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types \"test/*.test.ts\"",
+    "test:watch": "node --test --watch --experimental-strip-types \"test/*.test.ts\"",
+    "verify": "npm run typecheck && npm test && npm run build && npm run test:dist",
+    "test:dist": "node --test --experimental-strip-types \"test/built-package.check.ts\""
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "react": "^19.2.8",
+    "typescript": "^5.9.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "audio",
+    "video",
+    "timeline",
+    "playback",
+    "web-audio",
+    "mixdown",
+    "editor",
+    "headless",
+    "scheduler"
+  ]
+}
