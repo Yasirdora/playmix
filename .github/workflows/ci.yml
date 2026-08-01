@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    name: typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      # One gate, identical to the local one, so CI cannot pass what a
+      # developer's machine fails or vice versa.
+      - run: npm run verify
+
+  dependencies:
+    name: no runtime dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      # The zero-dependency claim is in the README, so it is checked here
+      # rather than trusted. Optional peers are allowed; a hard peer would
+      # still oblige every consumer to install it, so it is not.
+      - name: assert dependencies is empty
+        run: |
+          node -e '
+            const p = require("./package.json");
+            const deps = Object.keys(p.dependencies ?? {});
+            if (deps.length) { console.error("runtime dependencies:", deps); process.exit(1); }
+            for (const [n, v] of Object.entries(p.peerDependencies ?? {})) {
+              if (!p.peerDependenciesMeta?.[n]?.optional) {
+                console.error(`peer dependency "${n}" is not optional`); process.exit(1);
+              }
+            }
+            console.log("ok: no runtime dependencies, all peers optional");
+          '
