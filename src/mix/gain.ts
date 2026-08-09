@@ -27,6 +27,7 @@ import type { Clip, EnvelopePoint, MediaClip, Track } from "../types.ts";
 import {
   clipHasOverlap,
   crossfadeMultiplier,
+  crossfadesEnabled,
   type OverlapContext,
   trackOverlapSignature,
 } from "./crossfade.ts";
@@ -110,7 +111,7 @@ export function gainAtLocalTime(clip: Clip, localTime: number): number {
 export function clipGainAt(clip: Clip, localTime: number, overlapCtx?: OverlapContext): number {
   const base = gainAtLocalTime(clip, localTime);
   if (!overlapCtx || clip.kind !== "audio") return base;
-  if (!overlapCtx.stackOverlaps) return base;
+  if (!crossfadesEnabled(overlapCtx)) return base;
   return base * crossfadeMultiplier(clip as MediaClip, localTime, overlapCtx);
 }
 
@@ -142,7 +143,7 @@ export function resolveAudibleClips(ctx: MixContext): AudibleClip[] {
     const overlapCtx: OverlapContext = {
       clips: ctx.clips,
       clipOrder: ctx.clipOrder,
-      stackOverlaps: ctx.stackOverlaps ?? true,
+      stackOverlaps: ctx.stackOverlaps,
     };
     out.push({
       clip: clip as MediaClip,
@@ -194,7 +195,7 @@ export function resolveRenderClips(
 export function buildExportOverlapContext(
   clips: Record<string, Clip>,
   clipOrder: string[],
-  stackOverlaps: boolean,
+  stackOverlaps: boolean | undefined,
   range?: { start: number; end: number } | null,
 ): OverlapContext {
   if (!range) return { clips, clipOrder, stackOverlaps };
@@ -384,7 +385,15 @@ function scheduleClipGainInternal(
   overlapCtx: OverlapContext | undefined,
   includeTrackVolume: boolean,
 ): void {
-  if (overlapCtx && clip.kind === "audio" && clipHasOverlap(clip as MediaClip, overlapCtx)) {
+  /* The sampled-curve path exists only to reproduce a cosine. With crossfades
+     off the curve is exactly piecewise-linear, so taking it there would swap an
+     exact schedule for a 30 Hz approximation of itself. */
+  if (
+    overlapCtx &&
+    clip.kind === "audio" &&
+    crossfadesEnabled(overlapCtx) &&
+    clipHasOverlap(clip as MediaClip, overlapCtx)
+  ) {
     scheduleClipGainCurve(gain, clip, track, ctxStart, overlapCtx, includeTrackVolume);
     return;
   }

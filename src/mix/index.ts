@@ -14,6 +14,7 @@ export {
   clipsOverlap,
   collectCrossfadeBands,
   crossfadeMultiplier,
+  crossfadesEnabled,
   equalPowerCrossfade,
   isNestedInside,
   trackOverlapSignature,

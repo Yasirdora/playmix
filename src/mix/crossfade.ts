@@ -3,9 +3,29 @@ import type { Clip, MediaClip } from "../types.ts";
 export type OverlapContext = {
   clips: Record<string, Clip>;
   clipOrder: string[];
-  /** Editor stack-overlaps mode (placement only; mix always crossfades transitions). */
-  stackOverlaps?: boolean;
+  /**
+   * Whether same-track overlaps crossfade. Omitted means yes.
+   *
+   * Read it through {@link crossfadesEnabled} rather than testing the field
+   * directly — see the note there.
+   */
+  stackOverlaps?: boolean | undefined;
 };
+
+/**
+ * The one definition of the crossfade default.
+ *
+ * This exists because the default has to be identical in the live scheduler,
+ * the offline renderer and anything drawing a meter, and the only way to
+ * guarantee that is for there to be one of it. It was previously spelled three
+ * times — `?? true` in the renderer and the meter path, and a conditional
+ * spread that left it `undefined` in the scheduler — so a timeline that simply
+ * did not mention `stackOverlaps` crossfaded on export and hard-cut in preview.
+ * That is the exact divergence this package exists to rule out.
+ */
+export function crossfadesEnabled(ctx: OverlapContext): boolean {
+  return ctx.stackOverlaps !== false;
+}
 
 export type OverlapRegion = {
   /** Seconds from the start of `clip`. */
@@ -69,7 +89,7 @@ export function isNestedInside(inner: MediaClip, outer: MediaClip): boolean {
 
 /** Unique same-track transition overlaps for timeline crossfade chrome. */
 export function collectCrossfadeBands(trackId: string, ctx: OverlapContext): CrossfadeBand[] {
-  if (!ctx.stackOverlaps) return [];
+  if (!crossfadesEnabled(ctx)) return [];
 
   const onTrack: MediaClip[] = [];
   for (const id of ctx.clipOrder) {

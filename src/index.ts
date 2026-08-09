@@ -70,6 +70,7 @@ export {
   clipGainSignature,
   clipHasOverlap,
   crossfadeMultiplier,
+  crossfadesEnabled,
   equalPowerCrossfade,
   gainAtLocalTime,
   hasSoloedTrack,

@@ -18,8 +18,7 @@
  * attempt it.
  */
 
-import { SAMPLE_RATE } from "../mix/constants.ts";
-import { clampSpeed } from "../mix/constants.ts";
+import { SAMPLE_RATE, clampSpeed } from "../mix/constants.ts";
 import {
   buildExportOverlapContext,
   resolveRenderClips,
@@ -142,10 +141,12 @@ export async function renderMix(
 
   const ctx = new OfflineCtor(channels, Math.max(1, Math.ceil(duration * sampleRate)), sampleRate);
 
+  // Passed through, not defaulted. `crossfadesEnabled` owns the default, so an
+  // omitted flag cannot render differently from how it previewed.
   const overlapCtx = buildExportOverlapContext(
     timeline.clips,
     timeline.clipOrder,
-    timeline.stackOverlaps ?? true,
+    timeline.stackOverlaps,
     range,
   );
 

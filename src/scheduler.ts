@@ -45,7 +45,7 @@ import {
   scheduleLiveClipGain,
 } from "./mix/gain.ts";
 import type { OverlapContext } from "./mix/crossfade.ts";
-import type { Timeline, Track } from "./types.ts";
+import type { Clip, Timeline, Track } from "./types.ts";
 
 /**
  * Forgiving on purpose. Video decode latency runs 50–80 ms, so a tighter
@@ -91,6 +91,12 @@ export class Scheduler {
   private _gainSignatures = new Map<string, string>();
   private _unsub: (() => void) | null = null;
   private _timeline: Timeline | null = null;
+  /**
+   * Overlap geometry for the current timeline. Derived once per `setTimeline`
+   * rather than per clip per frame — it changes only when the arrangement does,
+   * and rebuilding it sixty times a second allocated for nothing.
+   */
+  private _overlapCtx: OverlapContext | undefined;
 
   constructor(opts: SchedulerOptions) {
     this._clock = opts.clock;
@@ -117,6 +123,13 @@ export class Scheduler {
    */
   setTimeline(timeline: Timeline): void {
     this._timeline = timeline;
+    this._overlapCtx = {
+      clips: timeline.clips,
+      clipOrder: timeline.clipOrder,
+      // Passed through, not defaulted. `crossfadesEnabled` owns the default, so
+      // preview cannot resolve an omitted flag differently from export.
+      stackOverlaps: timeline.stackOverlaps,
+    };
     this._reconcilePool();
     this._preloadAll();
     // Command immediately rather than waiting for the next tick, so a newly
@@ -133,6 +146,7 @@ export class Scheduler {
     this._preBuffered.clear();
     this._gainSignatures.clear();
     this._timeline = null;
+    this._overlapCtx = undefined;
   }
 
   // ── internals ────────────────────────────────────────────────────────────
@@ -173,14 +187,6 @@ export class Scheduler {
       if (!asset?.url) continue;
       this._pool.acquire(c.id, c.kind, asset.url);
     }
-  }
-
-  private _overlapContext(snap: Timeline): OverlapContext {
-    return {
-      clips: snap.clips,
-      clipOrder: snap.clipOrder,
-      ...(snap.stackOverlaps !== undefined ? { stackOverlaps: snap.stackOverlaps } : {}),
-    };
   }
 
   private _onTick = (): void => {
@@ -240,7 +246,7 @@ export class Scheduler {
       if (wantedAudible.has(id) && tr) {
         this._pool.attachAudio(entry, c.trackId);
         if (entry.gain) {
-          this._scheduleGain(entry.gain, id, c, tr, snap, time - c.start, playing);
+          this._scheduleGain(entry.gain, id, c, tr, time - c.start, playing);
         }
       } else if (entry.gain) {
         this._pool.detachAudio(entry);
@@ -276,13 +282,12 @@ export class Scheduler {
   private _scheduleGain(
     gain: GainNode,
     id: string,
-    clip: NonNullable<Timeline["clips"][string]>,
+    clip: Clip,
     track: Track,
-    snap: Timeline,
     posInClip: number,
     playing: boolean,
   ): void {
-    const overlapCtx = this._overlapContext(snap);
+    const overlapCtx = this._overlapCtx;
     const signature = clipGainSignature(clip, track, overlapCtx);
     const startingPlayback = playing && !this._commanded.get(id)?.playing;
 
