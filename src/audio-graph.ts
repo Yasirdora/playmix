@@ -42,6 +42,8 @@ const FADER_RAMP_S = 0.005;
 
 export class AudioGraph {
   private _ctx: BaseAudioContext | null;
+  /** Whether this graph created the context, and may therefore close it. */
+  private _ownsContext: boolean;
   private _master: GainNode | null = null;
   private _analyser: AnalyserNode | null = null;
   private _resumed = false;
@@ -50,6 +52,7 @@ export class AudioGraph {
 
   constructor(opts: AudioGraphOptions = {}) {
     this._ctx = opts.context ?? null;
+    this._ownsContext = false;
   }
 
   /** The context, created on first use. Throws only where Web Audio is absent. */
@@ -64,6 +67,7 @@ export class AudioGraph {
 
     if (!Ctor) throw new Error("[playmix] Web Audio is unavailable in this environment.");
     this._ctx = new Ctor();
+    this._ownsContext = true;
     return this._ctx;
   }
 
@@ -186,7 +190,20 @@ export class AudioGraph {
     this._trackBuses.delete(trackId);
   }
 
-  /** Tear the graph down. The context is closed only if this graph created it. */
+  /**
+   * Tear the graph down.
+   *
+   * A context this graph created is closed; one handed in by the host is left
+   * alone, since the host may still be using it. Closing matters more than it
+   * sounds: browsers cap how many `AudioContext`s a tab may hold open — Chrome
+   * historically at six — so a host that builds and disposes engines across
+   * route changes, or under React Strict Mode, runs out and then cannot play
+   * anything at all.
+   *
+   * `close()` is asynchronous and deliberately not awaited. Callers dispose
+   * from teardown paths that cannot be async — `useEffect` cleanup,
+   * `disconnectedCallback` — and nothing here depends on the close completing.
+   */
   dispose(): void {
     for (const id of [...this._trackBuses.keys()]) this.releaseTrackBus(id);
     if (this._master) disconnectQuietly(this._master);
@@ -194,6 +211,19 @@ export class AudioGraph {
     this._master = null;
     this._analyser = null;
     this._resumed = false;
+
+    const ctx = this._ctx;
+    if (ctx && this._ownsContext) {
+      /* Nulled first: a later `context()` builds a fresh one rather than
+         handing out a closing context whose nodes would never sound. */
+      this._ctx = null;
+      this._ownsContext = false;
+      if ("close" in ctx && ctx.state !== "closed") {
+        void (ctx as AudioContext).close().catch(() => {
+          /* Already closing, or closed by the host. Nothing left to do. */
+        });
+      }
+    }
   }
 }
 
