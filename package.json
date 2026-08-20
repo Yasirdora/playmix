@@ -1,11 +1,20 @@
 {
   "name": "playmix",
   "version": "0.1.0",
-  "private": true,
   "description": "Headless multi-track playback engine for the browser. Plays a timeline through the browser's own decoders and renders it offline through the same mix model, so preview and export cannot drift apart. Zero dependencies, framework-agnostic, SSR-safe.",
   "type": "module",
   "sideEffects": false,
   "license": "MIT",
+  "author": "Yasir Dora",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yasirdora/playmix.git"
+  },
+  "homepage": "https://github.com/yasirdora/playmix#readme",
+  "bugs": "https://github.com/yasirdora/playmix/issues",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -56,6 +65,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "src",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

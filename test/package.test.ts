@@ -15,6 +15,11 @@ import { join } from "node:path";
 
 const root = new URL("..", import.meta.url).pathname;
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+  private?: boolean;
+  author?: string;
+  repository?: { url?: string };
+  bugs?: string;
+  files?: string[];
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
@@ -48,6 +53,59 @@ describe("dependencies", () => {
         `${name} must be an optional peer, or a Svelte consumer is asked to install it`,
       );
     }
+  });
+});
+
+describe("publishable", () => {
+  it("is not marked private", () => {
+    // `npm publish` refuses a private package outright — and `--dry-run` does
+    // not, so the dry run is no evidence either way.
+    assert.notEqual(pkg.private, true, "remove `private` before publishing");
+  });
+
+  it("says who wrote it and where it lives", () => {
+    assert.ok(pkg.author, "author");
+    assert.ok(pkg.repository?.url, "repository.url");
+    assert.ok(pkg.bugs, "bugs");
+  });
+
+  it("ships every committed path it promises", () => {
+    /* `dist` is a build output, and `npm test` has to pass on a clean checkout
+       with none present — that is why built-package.check.ts sits outside the
+       test glob. check-dist verifies dist after the build; everything else in
+       `files` is committed and must be here. */
+    const BUILD_OUTPUTS = new Set(["dist"]);
+    for (const entry of pkg.files ?? []) {
+      if (BUILD_OUTPUTS.has(entry)) continue;
+      assert.ok(
+        statSync(join(root, entry), { throwIfNoEntry: false }),
+        `files lists missing ${entry}`,
+      );
+    }
+  });
+
+  it("ships the sources its declaration maps point at", () => {
+    /* Every `.d.ts.map` names `../src/*.ts`. Publishing the maps without the
+       sources sends consumers' go-to-definition to a file that isn't in the
+       tarball, so the two travel together or neither does. */
+    assert.ok(
+      pkg.files?.includes("src"),
+      "declaration maps reference src/, so src/ must be published alongside them",
+    );
+  });
+
+  it("links only to files a reader can actually reach", () => {
+    /* npm rewrites relative README links against `repository`, so they resolve
+       on the package page only if the paths exist in the repo. A dead link in
+       the README is the first thing a visitor clicks. */
+    const readme = readFileSync(join(root, "README.md"), "utf8");
+    const broken: string[] = [];
+    for (const m of readme.matchAll(/\]\((?!https?:|#|mailto:)([^)]+)\)/g)) {
+      const target = (m[1] ?? "").split("#")[0];
+      if (!target) continue;
+      if (!statSync(join(root, target), { throwIfNoEntry: false })) broken.push(target);
+    }
+    assert.deepEqual(broken, [], `README links to nonexistent paths: ${broken.join(", ")}`);
   });
 });
 
