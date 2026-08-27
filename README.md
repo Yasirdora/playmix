@@ -68,6 +68,12 @@ engine.play();
 engine.seek(4.2);
 
 const unsubscribe = engine.subscribe(() => render(engine.time()));
+
+// On teardown, both. `dispose` closes the `AudioContext` the engine created —
+// browsers cap how many a tab may hold open, so a host that mounts and unmounts
+// engines has to return them.
+unsubscribe();
+engine.dispose();
 ```
 
 Rendering uses the same model that just played it:
@@ -81,9 +87,18 @@ const buffer = await renderMix(timeline, {
 });
 ```
 
-`renderMix` returns an `AudioBuffer`. Encoding it to WAV, MP3 or M4A is a
-file-format problem that [mediabunny](https://mediabunny.dev) solves properly —
-pair them rather than expecting this package to grow an encoder.
+`renderMix` returns an `AudioBuffer` — a plain Web Audio type, not a wrapper —
+so nothing here dictates what you encode it with, or whether you encode it at
+all. Play it, meter it, hand it to a worker.
+
+If you do want a file: WAV is a 44-byte header and a sample loop, about thirty
+lines, and worth writing yourself before taking a dependency. Past that,
+[mediabunny](https://mediabunny.dev) is the one to pair with — WAV and AAC ride
+on WebCodecs, while MP3 and FLAC need its `@mediabunny/mp3-encoder` and
+`@mediabunny/flac-encoder` packages, because WebCodecs encodes neither.
+ffmpeg.wasm covers every format at around thirty megabytes.
+
+Whichever you pick, this package will not grow an encoder.
 
 ## Framework bindings
 
@@ -162,6 +177,13 @@ between seeks. Tighter values make the scheduler chase its own decode latency.
 The seek *at* a cut bypasses both, because a correct first frame matters more
 there than decoder politeness.
 
+**Overlapping clips crossfade unless you say otherwise.** Two audio clips that
+overlap on one track are mixed with an equal-power crossfade; set
+`stackOverlaps: false` on the timeline for a hard cut instead. The default lives
+in exactly one function, `crossfadesEnabled`, because the scheduler, the
+renderer and the meters all have to resolve an omitted flag the same way — when
+they each spelled it themselves, they didn't.
+
 **Pooling is per clip, not per asset.** Two clips can reference one file at
 different points and may overlap; sharing an element would mean sharing a
 playback head. Audio routes through Web Audio gain nodes because
@@ -178,7 +200,7 @@ audio render.
 
 | Not this | Use instead |
 |---|---|
-| Encoding, muxing, format conversion | [mediabunny](https://mediabunny.dev) |
+| Encoding, muxing, format conversion | your own WAV writer, or [mediabunny](https://mediabunny.dev) |
 | Pixel compositing, transforms, effects, text | [WebAV](https://github.com/WebAV-Tech/WebAV) |
 | Timeline UI, waveform canvas, drag and drop | yours |
 | The timeline data model | yours |
