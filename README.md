@@ -1,5 +1,8 @@
 # playmix
 
+[![CI](https://img.shields.io/github/actions/workflow/status/Yasirdora/playmix/main.yml?label=CI&logo=github)](https://github.com/Yasirdora/playmix/actions)
+[![npm](https://img.shields.io/npm/v/playmix)](https://www.npmjs.com/package/playmix)
+[![license](https://img.shields.io/npm/l/playmix)](https://github.com/Yasirdora/playmix/blob/main/LICENSE)
 A headless multi-track playback engine for the browser.
 
 It plays a timeline through the browser's own decoders, and renders that same
